@@ -17,6 +17,7 @@
 # config
 /.editorconfig
 # /.eslintrc.json
+/.github
 /.gitignore
 /.npmrc
 /.prettierrc
