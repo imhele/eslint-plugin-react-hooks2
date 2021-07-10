@@ -31,6 +31,9 @@ export default {
           enableDangerousAutofixThisMayCauseInfiniteLoops: {
             type: 'boolean',
           },
+          immediateRefHooks: {
+            type: 'string',
+          },
           stableRefHooks: {
             type: 'string',
           },
@@ -45,21 +48,28 @@ export default {
         ? new RegExp(context.options[0].additionalHooks)
         : undefined;
 
-    // Parse the `stableRefHooks` regex.
-    const stableRefHooks =
-      context.options && context.options[0] && context.options[0].stableRefHooks
-        ? new RegExp(context.options[0].stableRefHooks)
-        : undefined;
-
     const enableDangerousAutofixThisMayCauseInfiniteLoops =
       (context.options &&
         context.options[0] &&
         context.options[0].enableDangerousAutofixThisMayCauseInfiniteLoops) ||
       false;
 
+      // Parse the `immediateRefHooks` regex.
+      const immediateRefHooks =
+        context.options && context.options[0] && context.options[0].immediateRefHooks
+          ? new RegExp(context.options[0].immediateRefHooks)
+          : undefined;
+
+      // Parse the `stableRefHooks` regex.
+      const stableRefHooks =
+        context.options && context.options[0] && context.options[0].stableRefHooks
+          ? new RegExp(context.options[0].stableRefHooks)
+          : undefined;
+
     const options = {
       additionalHooks,
       enableDangerousAutofixThisMayCauseInfiniteLoops,
+      immediateRefHooks,
       stableRefHooks,
     };
 
@@ -81,6 +91,7 @@ export default {
     const stateVariables = new WeakSet();
     const stableKnownValueCache = new WeakMap();
     const functionWithoutCapturedValueCache = new WeakMap();
+    const immediateRefCache = new WeakMap();
     function memoizeWithWeakMap(fn, map) {
       return function (arg) {
         if (map.has(arg)) {
@@ -210,16 +221,8 @@ export default {
         if (init.type !== 'CallExpression') {
           return false;
         }
-        let callee = init.callee;
         // Step into `= React.something` initializer.
-        if (
-          callee.type === 'MemberExpression' &&
-          callee.object.name === 'React' &&
-          callee.property != null &&
-          !callee.computed
-        ) {
-          callee = callee.property;
-        }
+        const callee = getNodeWithoutReactNamespace(init.callee);
         if (callee.type !== 'Identifier') {
           return false;
         }
@@ -321,7 +324,7 @@ export default {
             pureScopes.has(ref.resolved.scope) &&
             // Stable values are fine though,
             // although we won't check functions deeper.
-            !memoizedIsStablecKnownHookValue(ref.resolved)
+            !memoizedIsStableKnownHookValue(ref.resolved)
           ) {
             return false;
           }
@@ -331,14 +334,54 @@ export default {
         return true;
       }
 
+      // Some are immediate ref.
+      function isImmediateRef(resolved) {
+        if (!options.immediateRefHooks) {
+          return false;
+        }
+        if (!isArray(resolved.defs)) {
+          return false;
+        }
+        const def = resolved.defs[0];
+        if (def == null) {
+          return false;
+        }
+        // Look for `let stuff = ...`
+        if (def.node.type !== 'VariableDeclarator') {
+          return false;
+        }
+        let init = def.node.init;
+        if (init == null) {
+          return false;
+        }
+        while (init.type === 'TSAsExpression') {
+          init = init.expression;
+        }
+        // Detect Hook calls
+        // const value = useHook()
+        if (init.type !== 'CallExpression') {
+          return false;
+        }
+        // Step into `= React.something` initializer.
+        const callee = getNodeWithoutReactNamespace(init.callee);
+        if (callee.type !== 'Identifier') {
+          return false;
+        }
+        return options.immediateRefHooks.test(callee.name);
+      }
+
       // Remember such values. Avoid re-running extra checks on them.
-      const memoizedIsStablecKnownHookValue = memoizeWithWeakMap(
+      const memoizedIsStableKnownHookValue = memoizeWithWeakMap(
         isStableKnownHookValue,
         stableKnownValueCache,
       );
       const memoizedIsFunctionWithoutCapturedValues = memoizeWithWeakMap(
         isFunctionWithoutCapturedValues,
         functionWithoutCapturedValueCache,
+      );
+      const memoizedIsImmediateRef = memoizeWithWeakMap(
+        isImmediateRef,
+        immediateRefCache,
       );
 
       // These are usually mistaken. Collect them.
@@ -428,7 +471,7 @@ export default {
           if (!dependencies.has(dependency)) {
             const resolved = reference.resolved;
             const isStable =
-              memoizedIsStablecKnownHookValue(resolved) ||
+              memoizedIsStableKnownHookValue(resolved) ||
               memoizedIsFunctionWithoutCapturedValues(resolved);
             dependencies.set(dependency, {
               isStable,
@@ -469,19 +512,31 @@ export default {
             break;
           }
         }
+        // For immediate ref, warn about assignment but not access.
+        const isImmediateRef = memoizedIsImmediateRef(reference.resolved);
         // We only want to warn about React-managed refs.
         if (foundCurrentAssignment) {
-          return;
+          if (isImmediateRef) {
+            reportProblem({
+              node: dependencyNode.parent.property,
+              message:
+                `The immediate ref value '${dependency}.current' probably should not be ` +
+                `changed when effect or cleanup function runs.`,
+            });
+          }
+        } else {
+          if (!isImmediateRef) {
+            reportProblem({
+              node: dependencyNode.parent.property,
+              message:
+                `The ref value '${dependency}.current' will likely have ` +
+                `changed by the time this effect cleanup function runs. If ` +
+                `this ref points to a node rendered by React, copy ` +
+                `'${dependency}.current' to a variable inside the effect, and ` +
+                `use that variable in the cleanup function.`,
+            });
+          }
         }
-        reportProblem({
-          node: dependencyNode.parent.property,
-          message:
-            `The ref value '${dependency}.current' will likely have ` +
-            `changed by the time this effect cleanup function runs. If ` +
-            `this ref points to a node rendered by React, copy ` +
-            `'${dependency}.current' to a variable inside the effect, and ` +
-            `use that variable in the cleanup function.`,
-        });
       });
 
       // Warn about assigning to variables in the outer scope.

@@ -1,4 +1,13 @@
-# `eslint-plugin-react-hooks`
+# `eslint-plugin-react-hooks2`
+
+基于 [eslint-plugin-react-hooks](https://github.com/facebook/react/tree/main/packages/eslint-plugin-react-hooks) 修改的版本，新增以下配置：
+
+- `immediateRefHooks` : 与此配置匹配的 Hook 的返回值将被视为立即引用，在 `useEffect()` 清理函数中取用时不会报警。
+- `stableRefHooks` : 与此配置匹配的 Hook 的返回值将被视为组件挂载期间不会发生变化，也就是被认为类似 `useRef()` 。
+
+---
+
+> 以下是 eslint-plugin-react-hooks README 原文。
 
 This ESLint plugin enforces the [Rules of Hooks](https://reactjs.org/docs/hooks-rules.html).
 
@@ -47,11 +56,9 @@ If you want more fine-grained configuration, you can instead add a snippet like 
 }
 ```
 
-
 ## Advanced Configuration
 
-`exhaustive-deps` can be configured to validate dependencies of custom Hooks with the `additionalHooks` option.
-This option accepts a regex to match the names of custom Hooks that have dependencies.
+`exhaustive-deps` can be configured to validate dependencies of custom Hooks with the `additionalHooks` option. This option accepts a regex to match the names of custom Hooks that have dependencies.
 
 ```js
 {
