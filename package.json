@@ -30,7 +30,6 @@
     "@typescript-eslint/parser-v2": "npm:@typescript-eslint/parser@^2.26.0",
     "@typescript-eslint/parser-v3": "npm:@typescript-eslint/parser@^3.10.0",
     "@typescript-eslint/parser-v4": "npm:@typescript-eslint/parser@^4.1.0",
-    "babel-eslint": "npm:babel-eslint@^10.1.0",
     "eslint": "npm:eslint@^7.30.0",
     "jest": "npm:jest@^27.0.6",
     "prettier": "npm:prettier@^2.3.2",

@@ -225,7 +225,7 @@ export default {
         }
         const id = def.node.id;
         const { name } = callee;
-        if (isStableRefHookName(name) && id.type === 'Identifier') {
+        if (isStableRefHookName(name, options) && id.type === 'Identifier') {
           // stable return value.
           return true;
         } else if (name === 'useState' || name === 'useReducer') {
