@@ -4,7 +4,7 @@ const Config: CoreConfig = {
   babel: {
     env: {
       targets: {
-        node: '>=10',
+        node: '10',
       },
     },
   },

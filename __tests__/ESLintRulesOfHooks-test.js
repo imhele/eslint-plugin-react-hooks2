@@ -8,7 +8,7 @@
 'use strict';
 
 const ESLintTester = require('eslint').RuleTester;
-const ReactHooksESLintPlugin = require('eslint-plugin-react-hooks');
+const ReactHooksESLintPlugin = require('../lib');
 const ReactHooksESLintRule = ReactHooksESLintPlugin.rules['rules-of-hooks'];
 
 ESLintTester.setDefaultConfig({

@@ -8,7 +8,7 @@
 'use strict';
 
 const ESLintTester = require('eslint').RuleTester;
-const ReactHooksESLintPlugin = require('eslint-plugin-react-hooks');
+const ReactHooksESLintPlugin = require('../lib');
 const ReactHooksESLintRule = ReactHooksESLintPlugin.rules['exhaustive-deps'];
 
 /**
@@ -591,6 +591,28 @@ const tests = {
           }, []);
         }
       `,
+    },
+    {
+      code: normalizeIndent`
+        function MyComponent() {
+          const ref = useCustomRef();
+          useEffect(() => {
+            console.log(ref.current);
+          }, [ref]);
+        }
+      `,
+      options: [{ stableRefHooks: 'useCustomRef' }],
+    },
+    {
+      code: normalizeIndent`
+        function MyComponent() {
+          const ref = useCustomRef();
+          useEffect(() => {
+            console.log(ref.current);
+          }, []);
+        }
+      `,
+      options: [{ stableRefHooks: 'useCustomRef' }],
     },
     {
       code: normalizeIndent`

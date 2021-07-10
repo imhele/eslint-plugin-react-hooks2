@@ -31,6 +31,9 @@ export default {
           enableDangerousAutofixThisMayCauseInfiniteLoops: {
             type: 'boolean',
           },
+          stableRefHooks: {
+            type: 'string',
+          },
         },
       },
     ],
@@ -42,6 +45,12 @@ export default {
         ? new RegExp(context.options[0].additionalHooks)
         : undefined;
 
+    // Parse the `stableRefHooks` regex.
+    const stableRefHooks =
+      context.options && context.options[0] && context.options[0].stableRefHooks
+        ? new RegExp(context.options[0].stableRefHooks)
+        : undefined;
+
     const enableDangerousAutofixThisMayCauseInfiniteLoops =
       (context.options &&
         context.options[0] &&
@@ -51,6 +60,7 @@ export default {
     const options = {
       additionalHooks,
       enableDangerousAutofixThisMayCauseInfiniteLoops,
+      stableRefHooks,
     };
 
     function reportProblem(problem) {
@@ -215,8 +225,8 @@ export default {
         }
         const id = def.node.id;
         const { name } = callee;
-        if (name === 'useRef' && id.type === 'Identifier') {
-          // useRef() return value is stable.
+        if (isStableRefHookName(name) && id.type === 'Identifier') {
+          // stable return value.
           return true;
         } else if (name === 'useState' || name === 'useReducer') {
           // Only consider second value in initializing tuple stable.
@@ -1646,6 +1656,20 @@ function getReactiveHookCallbackIndex(calleeNode, options) {
         return options.additionalHooks.test(name) ? 0 : -1;
       } else {
         return -1;
+      }
+  }
+}
+
+// Is the return value of hook stable?
+function isStableRefHookName(name, options) {
+  switch (name) {
+    case 'useRef':
+      return true;
+    default:
+      if (options && options.stableRefHooks) {
+        return options.stableRefHooks.test(name);
+      } else {
+        return false;
       }
   }
 }
