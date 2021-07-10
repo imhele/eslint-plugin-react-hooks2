@@ -8035,8 +8035,16 @@ if (!process.env.CI) {
   };
   tests.valid = tests.valid.filter(predicate);
   tests.invalid = tests.invalid.filter(predicate);
-  testsTypescript.valid = testsTypescript.valid.filter(predicate);
-  testsTypescript.invalid = testsTypescript.invalid.filter(predicate);
+  testsTypescript.valid = testsTypescript.valid.filter(predicate).map(withTSXExtension);
+  testsTypescript.invalid = testsTypescript.invalid.filter(predicate).map(withTSXExtension);
+  testsTypescriptEslintParserV4.valid = testsTypescriptEslintParserV4.valid.map(withTSXExtension);
+  testsTypescriptEslintParserV4.invalid =
+    testsTypescriptEslintParserV4.invalid.map(withTSXExtension);
+
+  function withTSXExtension(config) {
+    config = typeof config === 'string' ? { code: config } : config;
+    return { filename: 'test.tsx', ...config };
+  }
 }
 
 describe('react-hooks', () => {
