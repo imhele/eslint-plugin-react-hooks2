@@ -914,6 +914,34 @@ const tests = {
       `,
     },
     {
+      // Valid because myRef will be treated as immediate ref.
+      code: normalizeIndent`
+        function useMyThing() {
+          const myRef = useImmedValueRef();
+          useEffect(() => {
+            return () => {
+              console.log(myRef.current)
+            };
+          }, [myRef]);
+        }
+      `,
+      options: [{ immediateRefHooks: 'useImmedValueRef' }],
+    },
+    {
+      // Valid because myRef will be treated as stable immediate ref.
+      code: normalizeIndent`
+        function useMyThing() {
+          const myRef = useImmedValueRef();
+          useEffect(() => {
+            return () => {
+              console.log(myRef.current)
+            };
+          }, []);
+        }
+      `,
+      options: [{ immediateRefHooks: 'useImmedValueRef', stableRefHooks: 'useImmedValueRef' }],
+    },
+    {
       // Valid because it's a primitive constant.
       code: normalizeIndent`
         function MyComponent() {
