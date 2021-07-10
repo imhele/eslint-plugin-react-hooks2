@@ -12,5 +12,8 @@ function resolveBabelPluginItem(plugin) {
 }
 
 function resolveBabelPluginItemPath(name) {
+  try {
+    return require.resolve(name);
+  } catch (error) {}
   return require.resolve(name, { paths: [require.resolve('wc-bundler')] });
 }
