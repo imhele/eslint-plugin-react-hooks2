@@ -23,3 +23,4 @@
 /.vscode
 /pnpm-lock.yaml
 # /tsconfig.json
+/wc-bundler.config.ts
