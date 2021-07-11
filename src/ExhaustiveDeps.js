@@ -512,31 +512,21 @@ export default {
             break;
           }
         }
-        // For immediate ref, warn about assignment but not access.
-        const isImmediateRef = memoizedIsImmediateRef(reference.resolved);
-        // We only want to warn about React-managed refs.
-        if (foundCurrentAssignment) {
-          if (isImmediateRef) {
-            reportProblem({
-              node: dependencyNode.parent.property,
-              message:
-                `The immediate ref value '${dependency}.current' probably should not be ` +
-                `changed when effect or cleanup function runs.`,
-            });
-          }
-        } else {
-          if (!isImmediateRef) {
-            reportProblem({
-              node: dependencyNode.parent.property,
-              message:
-                `The ref value '${dependency}.current' will likely have ` +
-                `changed by the time this effect cleanup function runs. If ` +
-                `this ref points to a node rendered by React, copy ` +
-                `'${dependency}.current' to a variable inside the effect, and ` +
-                `use that variable in the cleanup function.`,
-            });
-          }
+        // We only want to warn about React-managed (lazy) refs.
+        if (foundCurrentAssignment || memoizedIsImmediateRef(reference.resolved)) {
+          return;
         }
+        reportProblem({
+          node: dependencyNode.parent.property,
+          message:
+            `The ref value '${dependency}.current' will likely have ` +
+            `changed by the time this effect cleanup function runs. If ` +
+            `this ref points to a node rendered by React, copy ` +
+            `'${dependency}.current' to a variable inside the effect, and ` +
+            `use that variable in the cleanup function. If this ref points ` +
+            `to the newest value of a state, assign '${dependency}.current' ` +
+            `manually or config 'immediateRefHooks' option of this rule.`,
+        });
       });
 
       // Warn about assigning to variables in the outer scope.
