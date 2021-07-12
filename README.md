@@ -4,6 +4,25 @@
 
 - `immediateRefHooks` : 与此配置匹配的 Hook 的返回值将被视为立即引用，在 `useEffect()` 清理函数中取用时不会报警。
 - `stableRefHooks` : 与此配置匹配的 Hook 的返回值将被视为组件挂载期间不会发生变化，也就是被认为类似 `useRef()` 。
+- `stableStateHooks` : 与此配置匹配的 Hook 的返回数组的第二项将被视为组件挂载期间不会发生变化，也就是被认为类似 `useState()` 。
+
+示例：
+
+```json
+{
+  "rules": {
+    // ...
+    "react-hooks/exhaustive-deps": [
+      "warn",
+      {
+        "immediateRefHooks": "^use(ImmedValueRef)$",
+        "stableRefHooks": "^use(CombinedRef|Constant|ImmedValueRef|RefCallback|RefGetter)$",
+        "stableStateHooks": "^use(ControlledState|Model)$"
+      }
+    ]
+  }
+}
+```
 
 ---
 

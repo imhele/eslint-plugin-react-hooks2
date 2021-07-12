@@ -37,6 +37,9 @@ export default {
           stableRefHooks: {
             type: 'string',
           },
+          stableStateHooks: {
+            type: 'string',
+          },
         },
       },
     ],
@@ -54,23 +57,30 @@ export default {
         context.options[0].enableDangerousAutofixThisMayCauseInfiniteLoops) ||
       false;
 
-      // Parse the `immediateRefHooks` regex.
-      const immediateRefHooks =
-        context.options && context.options[0] && context.options[0].immediateRefHooks
-          ? new RegExp(context.options[0].immediateRefHooks)
-          : undefined;
+    // Parse the `immediateRefHooks` regex.
+    const immediateRefHooks =
+      context.options && context.options[0] && context.options[0].immediateRefHooks
+        ? new RegExp(context.options[0].immediateRefHooks)
+        : undefined;
 
-      // Parse the `stableRefHooks` regex.
-      const stableRefHooks =
-        context.options && context.options[0] && context.options[0].stableRefHooks
-          ? new RegExp(context.options[0].stableRefHooks)
-          : undefined;
+    // Parse the `stableRefHooks` regex.
+    const stableRefHooks =
+      context.options && context.options[0] && context.options[0].stableRefHooks
+        ? new RegExp(context.options[0].stableRefHooks)
+        : undefined;
+
+    // Parse the `stableStateHooks` regex.
+    const stableStateHooks =
+      context.options && context.options[0] && context.options[0].stableStateHooks
+        ? new RegExp(context.options[0].stableStateHooks)
+        : undefined;
 
     const options = {
       additionalHooks,
       enableDangerousAutofixThisMayCauseInfiniteLoops,
       immediateRefHooks,
       stableRefHooks,
+      stableStateHooks,
     };
 
     function reportProblem(problem) {
@@ -272,6 +282,20 @@ export default {
               return true;
             }
           }
+        } else if (options.stableStateHooks && options.stableStateHooks.test(name)) {
+          // Custom stable state hooks
+          // Only consider second value in initializing tuple stable.
+          if (
+            id.type === 'ArrayPattern' &&
+            id.elements.length >= 2 &&
+            Array.isArray(resolved.identifiers)
+          ) {
+            // Is second tuple value the same reference we're checking?
+            if (id.elements[1] === resolved.identifiers[0]) {
+              // Setter is stable.
+              return true;
+            }
+          }
         }
         // By default assume it's dynamic.
         return false;
@@ -379,10 +403,7 @@ export default {
         isFunctionWithoutCapturedValues,
         functionWithoutCapturedValueCache,
       );
-      const memoizedIsImmediateRef = memoizeWithWeakMap(
-        isImmediateRef,
-        immediateRefCache,
-      );
+      const memoizedIsImmediateRef = memoizeWithWeakMap(isImmediateRef, immediateRefCache);
 
       // These are usually mistaken. Collect them.
       const currentRefsInEffectCleanup = new Map();
