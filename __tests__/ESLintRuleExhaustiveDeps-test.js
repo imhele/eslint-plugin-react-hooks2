@@ -1388,7 +1388,22 @@ const tests = {
           return <h1>{count}</h1>;
         }
       `,
-      options: [{ stableStateHooks: 'useModel' }],
+      options: [{ stableStateHooks: ['useModel'] }],
+    },
+    {
+      code: normalizeIndent`
+        function Example() {
+          const [loading, startLoading, endLoading] = useToggle(false);
+
+          useEffect(() => {
+            startLoading();
+            fetchData().then(() => endLoading());
+          }, []);
+
+          return <h1>{loading ? 'Loading...' : 'Hello!'}</h1>;
+        }
+      `,
+      options: [{ stableStateHooks: [['useToggle', [1, 2]]] }],
     },
     // Ignore arguments keyword for arrow functions.
     {
@@ -3833,7 +3848,7 @@ const tests = {
           ],
         },
       ],
-      options: [{ stableStateHooks: 'useModel' }],
+      options: [{ stableStateHooks: ['useModel'] }],
     },
     {
       code: normalizeIndent`

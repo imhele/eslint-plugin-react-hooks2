@@ -4,7 +4,7 @@
 
 - `immediateRefHooks` : 与此配置匹配的 Hook 的返回值将被视为立即引用，在 `useEffect()` 清理函数中取用时不会报警。
 - `stableRefHooks` : 与此配置匹配的 Hook 的返回值将被视为组件挂载期间不会发生变化，也就是被认为类似 `useRef()` 。
-- `stableStateHooks` : 与此配置匹配的 Hook 的返回数组的第二项将被视为组件挂载期间不会发生变化，也就是被认为类似 `useState()` 。
+- `stableStateHooks` : 与此配置匹配的 Hook 的返回数组的项目将被视为组件挂载期间不会发生变化，也就是被认为类似 `useState()` 。配置为 `["useModel", ["useToggle", [1, 2]]]` 相当于 `[["useModel", 1], ["useToggle", [1, 2]]]` 相当于 `[["useModel", [1]], ["useToggle", [1, 2]]]` ，也就是 `useModel()` 返回的第二项和 `useToggle()` 返回的第二项和第三项将被视为组件挂载期间不会发生变化。
 
 示例：
 
@@ -17,7 +17,7 @@
       {
         "immediateRefHooks": "^use(ImmedValueRef)$",
         "stableRefHooks": "^use(CombinedRef|Constant|ImmedValueRef|RefCallback|RefGetter)$",
-        "stableStateHooks": "^use(ControlledState|Model)$"
+        "stableStateHooks": ["useModel", ["useToggle", [1, 2]]]
       }
     ]
   }

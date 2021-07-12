@@ -37,8 +37,16 @@ export default {
           stableRefHooks: {
             type: 'string',
           },
+          // ['useCustomHook', ['useCustomHook', 1], ['useCustomHook', [1, 2]]]
           stableStateHooks: {
-            type: 'string',
+            type: 'array',
+            items: {
+              type: ['string', 'array'],
+              items: [
+                { type: 'string' },
+                { type: ['number', 'array'], items: { type: 'number', minimum: 0 }, minimum: 0 },
+              ],
+            },
           },
         },
       },
@@ -46,34 +54,37 @@ export default {
   },
   create(context) {
     // Parse the `additionalHooks` regex.
-    const additionalHooks =
-      context.options && context.options[0] && context.options[0].additionalHooks
-        ? new RegExp(context.options[0].additionalHooks)
-        : undefined;
+    const additionalHooks = context.options?.[0]?.additionalHooks
+      ? new RegExp(context.options[0].additionalHooks)
+      : undefined;
 
     const enableDangerousAutofixThisMayCauseInfiniteLoops =
-      (context.options &&
-        context.options[0] &&
-        context.options[0].enableDangerousAutofixThisMayCauseInfiniteLoops) ||
-      false;
+      context.options?.[0]?.enableDangerousAutofixThisMayCauseInfiniteLoops || false;
 
     // Parse the `immediateRefHooks` regex.
-    const immediateRefHooks =
-      context.options && context.options[0] && context.options[0].immediateRefHooks
-        ? new RegExp(context.options[0].immediateRefHooks)
-        : undefined;
+    const immediateRefHooks = context.options?.[0]?.immediateRefHooks
+      ? new RegExp(context.options[0].immediateRefHooks)
+      : undefined;
 
     // Parse the `stableRefHooks` regex.
-    const stableRefHooks =
-      context.options && context.options[0] && context.options[0].stableRefHooks
-        ? new RegExp(context.options[0].stableRefHooks)
-        : undefined;
+    const stableRefHooks = context.options?.[0]?.stableRefHooks
+      ? new RegExp(context.options[0].stableRefHooks)
+      : undefined;
 
-    // Parse the `stableStateHooks` regex.
-    const stableStateHooks =
-      context.options && context.options[0] && context.options[0].stableStateHooks
-        ? new RegExp(context.options[0].stableStateHooks)
-        : undefined;
+    // Normalize as [string, number[]][]
+    let stableStateHooks;
+
+    if (context.options?.[0]?.stableStateHooks) {
+      const entries = context.options[0].stableStateHooks.map((item) => {
+        // 'useCustomHook'
+        if (typeof item === 'string') return [item, [1]];
+        // ['useCustomHook', [1, 2]]
+        if (Array.isArray(item[1])) return [item[0], item[1].slice().sort()];
+        // ['useCustomHook', 1]
+        return [item[0], [item[1]]];
+      });
+      stableStateHooks = new Map(entries);
+    }
 
     const options = {
       additionalHooks,
@@ -282,18 +293,19 @@ export default {
               return true;
             }
           }
-        } else if (options.stableStateHooks && options.stableStateHooks.test(name)) {
+        } else if (options.stableStateHooks?.has(name)) {
           // Custom stable state hooks
-          // Only consider second value in initializing tuple stable.
-          if (
-            id.type === 'ArrayPattern' &&
-            id.elements.length >= 2 &&
-            Array.isArray(resolved.identifiers)
-          ) {
-            // Is second tuple value the same reference we're checking?
-            if (id.elements[1] === resolved.identifiers[0]) {
-              // Setter is stable.
-              return true;
+          if (id.type === 'ArrayPattern' && Array.isArray(resolved.identifiers)) {
+            // Is tuple contains any stable element which has the same reference we're checking?
+            const elements = id.elements;
+            const identifier = resolved.identifiers[0];
+            // Indexes array has already been sorted.
+            const stableIndexes = options.stableStateHooks.get(name);
+            for (let i = 0; i < stableIndexes.length && elements.length > stableIndexes[i]; i++) {
+              if (elements[stableIndexes[i]] === identifier) {
+                // Array element is stable.
+                return true;
+              }
             }
           }
         }
