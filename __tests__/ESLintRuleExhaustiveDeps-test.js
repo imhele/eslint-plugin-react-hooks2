@@ -1373,6 +1373,23 @@ const tests = {
         }
       `,
     },
+    {
+      code: normalizeIndent`
+        function Counter() {
+          const [count, actions] = useModel(Store);
+
+          useEffect(() => {
+            let id = setInterval(() => {
+              actions.add(1);
+            }, 1000);
+            return () => clearInterval(id);
+          }, []);
+
+          return <h1>{count}</h1>;
+        }
+      `,
+      options: [{ stableStateHooks: 'useModel' }],
+    },
     // Ignore arguments keyword for arrow functions.
     {
       code: normalizeIndent`
@@ -3777,6 +3794,49 @@ const tests = {
     },
     {
       code: normalizeIndent`
+        function Counter() {
+          const [count, actions] = useModel(Store);
+
+          useEffect(() => {
+            let id = setInterval(() => {
+              actions.set(count + 1);
+            }, 1000);
+            return () => clearInterval(id);
+          }, []);
+
+          return <h1>{count}</h1>;
+        }
+      `,
+      errors: [
+        {
+          message:
+            "React Hook useEffect has a missing dependency: 'count'. " +
+            'Either include it or remove the dependency array.',
+          suggestions: [
+            {
+              desc: 'Update the dependencies array to be: [count]',
+              output: normalizeIndent`
+                function Counter() {
+                  const [count, actions] = useModel(Store);
+
+                  useEffect(() => {
+                    let id = setInterval(() => {
+                      actions.set(count + 1);
+                    }, 1000);
+                    return () => clearInterval(id);
+                  }, [count]);
+
+                  return <h1>{count}</h1>;
+                }
+              `,
+            },
+          ],
+        },
+      ],
+      options: [{ stableStateHooks: 'useModel' }],
+    },
+    {
+      code: normalizeIndent`
         function MyComponent(props) {
           const ref1 = useRef();
           const ref2 = useRef();
@@ -4518,7 +4578,9 @@ const tests = {
             `The ref value 'myRef.current' will likely have changed by the time ` +
             `this effect cleanup function runs. If this ref points to a node ` +
             `rendered by React, copy 'myRef.current' to a variable inside the effect, ` +
-            `and use that variable in the cleanup function.`,
+            `and use that variable in the cleanup function. If this ref points to ` +
+            `the newest value of a state, assign 'myRef.current' manually ` +
+            `or config 'immediateRefHooks' option of this rule.`,
           suggestions: undefined,
         },
       ],
@@ -4541,7 +4603,9 @@ const tests = {
             `The ref value 'myRef.current' will likely have changed by the time ` +
             `this effect cleanup function runs. If this ref points to a node ` +
             `rendered by React, copy 'myRef.current' to a variable inside the effect, ` +
-            `and use that variable in the cleanup function.`,
+            `and use that variable in the cleanup function. If this ref points to ` +
+            `the newest value of a state, assign 'myRef.current' manually ` +
+            `or config 'immediateRefHooks' option of this rule.`,
           suggestions: undefined,
         },
       ],
@@ -4564,7 +4628,9 @@ const tests = {
             `The ref value 'myRef.current' will likely have changed by the time ` +
             `this effect cleanup function runs. If this ref points to a node ` +
             `rendered by React, copy 'myRef.current' to a variable inside the effect, ` +
-            `and use that variable in the cleanup function.`,
+            `and use that variable in the cleanup function. If this ref points to ` +
+            `the newest value of a state, assign 'myRef.current' manually ` +
+            `or config 'immediateRefHooks' option of this rule.`,
           suggestions: undefined,
         },
       ],
@@ -4585,7 +4651,9 @@ const tests = {
             `The ref value 'myRef.current' will likely have changed by the time ` +
             `this effect cleanup function runs. If this ref points to a node ` +
             `rendered by React, copy 'myRef.current' to a variable inside the effect, ` +
-            `and use that variable in the cleanup function.`,
+            `and use that variable in the cleanup function. If this ref points to ` +
+            `the newest value of a state, assign 'myRef.current' manually ` +
+            `or config 'immediateRefHooks' option of this rule.`,
           suggestions: undefined,
         },
       ],
@@ -4612,7 +4680,9 @@ const tests = {
             `The ref value 'myRef.current' will likely have changed by the time ` +
             `this effect cleanup function runs. If this ref points to a node ` +
             `rendered by React, copy 'myRef.current' to a variable inside the effect, ` +
-            `and use that variable in the cleanup function.`,
+            `and use that variable in the cleanup function. If this ref points to ` +
+            `the newest value of a state, assign 'myRef.current' manually ` +
+            `or config 'immediateRefHooks' option of this rule.`,
           suggestions: undefined,
         },
       ],
@@ -4639,7 +4709,9 @@ const tests = {
             `The ref value 'myRef.current' will likely have changed by the time ` +
             `this effect cleanup function runs. If this ref points to a node ` +
             `rendered by React, copy 'myRef.current' to a variable inside the effect, ` +
-            `and use that variable in the cleanup function.`,
+            `and use that variable in the cleanup function. If this ref points to ` +
+            `the newest value of a state, assign 'myRef.current' manually ` +
+            `or config 'immediateRefHooks' option of this rule.`,
           suggestions: undefined,
         },
       ],
@@ -4671,7 +4743,9 @@ const tests = {
         `The ref value 'myRef.current' will likely have changed by the time ` +
           `this effect cleanup function runs. If this ref points to a node ` +
           `rendered by React, copy 'myRef.current' to a variable inside the effect, ` +
-          `and use that variable in the cleanup function.`,
+          `and use that variable in the cleanup function. If this ref points to ` +
+          `the newest value of a state, assign 'myRef.current' manually ` +
+          `or config 'immediateRefHooks' option of this rule.`,
       ],
       options: [{ additionalHooks: 'useLayoutEffect_SAFE_FOR_SSR' }],
     },
