@@ -1,5 +1,7 @@
 # `eslint-plugin-react-hooks2`
 
+> [English](https://github.com/imhele/eslint-plugin-react-hooks2/blob/main/README.en.md)
+
 基于 [eslint-plugin-react-hooks](https://github.com/facebook/react/tree/main/packages/eslint-plugin-react-hooks) 修改的版本，新增以下配置：
 
 - `immediateRefHooks` : 与此配置匹配的 Hook 的返回值将被视为立即引用，在 `useEffect()` 清理函数中取用时不会报警。
