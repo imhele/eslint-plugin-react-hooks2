@@ -26,7 +26,17 @@ export default {
         enableDangerousAutofixThisMayCauseInfiniteLoops: false,
         properties: {
           additionalHooks: {
-            type: 'string',
+            type: ['string', 'array'],
+            items: {
+              type: ['string', 'array'],
+              minItems: 2,
+              maxItems: 3,
+              items: [
+                { type: 'string' },
+                { type: ['number', 'array'], items: { type: 'number', minimum: 0 }, minimum: 0 },
+                { type: 'number', minimum: 0 },
+              ],
+            }
           },
           enableDangerousAutofixThisMayCauseInfiniteLoops: {
             type: 'boolean',
