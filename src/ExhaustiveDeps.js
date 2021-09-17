@@ -42,9 +42,11 @@ export default {
             type: 'array',
             items: {
               type: ['string', 'array'],
+              minItems: 2,
+              maxItems: 2,
               items: [
                 { type: 'string' },
-                { type: ['number', 'array'], items: { type: 'number', minimum: 0 }, minimum: 0 },
+                { type: ['number', 'array'], minItems: 1, items: { type: 'number', minimum: 0 }, minimum: 0 },
               ],
             },
           },
