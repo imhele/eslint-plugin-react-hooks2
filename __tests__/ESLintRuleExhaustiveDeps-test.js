@@ -535,6 +535,28 @@ const tests = {
     {
       code: normalizeIndent`
         function MyComponent(props) {
+          useCustomEffect(true, () => {
+            console.log(props.foo);
+          }, [props.foo]);
+        }
+      `,
+      options: [{ additionalHooks: [['useCustomEffect', [1]]] }],
+    },
+    {
+      code: normalizeIndent`
+        function MyComponent(props) {
+          useCustomEffect(true, () => {
+            console.log(props.foo);
+          }, () => {
+            console.log(props.bar);
+          }, false, [props.foo, props.bar]);
+        }
+      `,
+      options: [{ additionalHooks: [['useCustomEffect', [1, 2], 4]] }],
+    },
+    {
+      code: normalizeIndent`
+        function MyComponent(props) {
           useWithoutEffectSuffix(() => {
             console.log(props.foo);
           }, []);
