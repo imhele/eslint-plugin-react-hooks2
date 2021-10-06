@@ -33,7 +33,7 @@ export default {
               maxItems: 3,
               items: [
                 { type: 'string' },
-                { type: ['number', 'array'], items: { type: 'number', minimum: 0 }, minimum: 0 },
+                { type: ['number', 'array'], items: { type: 'number', minimum: 0 }, minimum: 0, minItems: 1 },
                 { type: 'number', minimum: 0 },
               ],
             }
