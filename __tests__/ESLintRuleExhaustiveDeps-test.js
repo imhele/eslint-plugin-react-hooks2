@@ -13,7 +13,7 @@ const ReactHooksESLintRule = ReactHooksESLintPlugin.rules['exhaustive-deps'];
 
 /**
  * A string template tag that removes padding from the left side of multi-line strings
- * @param {Array} strings array of code strings (only one expected)
+ * @param {ReadonlyArray<string>} strings array of code strings (only one expected)
  */
 function normalizeIndent(strings) {
   const codeLines = strings[0].split('\n');
@@ -540,7 +540,7 @@ const tests = {
           }, [props.foo]);
         }
       `,
-      options: [{ additionalHooks: [['useCustomEffect', [1]]] }],
+      options: [{ additionalHooks: [['useCustomEffect', 1]] }],
     },
     {
       code: normalizeIndent`

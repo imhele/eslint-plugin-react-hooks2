@@ -2,8 +2,21 @@
 
 Fork of
 [eslint-plugin-react-hooks](https://github.com/facebook/react/tree/main/packages/eslint-plugin-react-hooks)
-with the following additional options：
+with the following enhanced and additional options：
 
+- `additionalHooks` : A regex to match the names of custom Hooks that have
+  dependencies, or an array of hook names and arguments array indicies to
+  indicate which argument(s) are functions, and which is the dependencies
+  array. A configuration like
+  `["useCustomMemo", ["useCallbacks", [0, 1]], ["useDelay", 0, 2]]` is equal to
+  `[["useCustomMemo", 0, 1], ["useCallbacks", [0, 1], 2], ["useDelay", 0, 2]]`,
+  which is equal to
+  `[["useCustomMemo", [0], 1], ["useCallbacks", [0, 1], 2], ["useDelay", [0], 2]]`,
+  meaning the `useCustomMemo(fn, deps)` takes a function as the first argument
+  and dependencies as the second, `useCallbacks(fn1, fn2, deps)` takes a
+  function as the first and second argument and dependencies as the third
+  argument, and `useDelay(fn, delay, deps)` takes a function as the first, and 
+  dependencies as the third argument.
 - `immediateRefHooks` : A regex to match the name of hooks that return a `Ref`
   that can immediately be used in a `useEffect()` callback.
 - `stableRefHooks` : A regex to match the name of hooks returning a value that
@@ -12,7 +25,7 @@ with the following additional options：
 - `stableStateHooks` : An array of hook names and return array indicies to
   indicate return values similar to `useState()`. A configuration like
   `["useModel", ["useToggle", [1, 2]]]` is equal to
-  `[["useModel", 1], ["useToggle", [1, 2]]]` which is equal to
+  `[["useModel", 1], ["useToggle", [1, 2]]]`, which is equal to
   `[["useModel", [1]], ["useToggle", [1, 2]]]`, meaning the second item in the
   return value of `useModel()` and the second and third items in the return
   value of `useToggle()` will maintain their object references throughout the
@@ -27,6 +40,7 @@ Example：
     "react-hooks/exhaustive-deps": [
       "warn",
       {
+        "additionalHooks": ["useCustomMemo", ["useCallbacks", [0, 1]], ["useDelay", 0, 2]],
         "immediateRefHooks": "^use(ImmedValueRef)$",
         "stableRefHooks": "^use(CombinedRef|Constant|ImmedValueRef|RefCallback|RefGetter)$",
         "stableStateHooks": ["useModel", ["useToggle", [1, 2]]]
