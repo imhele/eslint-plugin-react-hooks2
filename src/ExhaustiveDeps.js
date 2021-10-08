@@ -9,6 +9,16 @@
 
 'use strict';
 
+/**
+ * @typedef NormalizedOptions
+ * @property additionalHooks {(name: string) => [number[], number] | false=}
+ * @property enableDangerousAutofixThisMayCauseInfiniteLoops {boolean}
+ * @property immediateRefHooks {RegExp=}
+ * @property stableRefHooks {RegExp=}
+ * @property stableStateHooks {Map<string, number[]>=}
+ */
+
+/** */
 export default {
   meta: {
     type: 'suggestion',
@@ -67,10 +77,11 @@ export default {
   create(context) {
     // Parse the `additionalHooks` regex.
     const additionalHooksOption = context.options?.[0]?.additionalHooks;
+    /** @type {((name: string) => [number[], number] | false) | undefined} */
     let additionalHooks;
     if (Array.isArray(additionalHooksOption)) {
-      /** @type [string, [number[], number]][] */
-      const entries = additionalHooksOption.map((item) => {
+      /** @type {Map<string, [number[], number]>} */
+      const map = new Map(additionalHooksOption.map((item) => {
         // 'useCustomHook'
         if (typeof item === 'string') return [item, [[0], 1]];
         // ['useCustomHook', [1, 2] (, 4)]
@@ -81,21 +92,11 @@ export default {
         };
         // ['useCustomHook', 1 (, 3)]
         return [item[0], [[item[1]], typeof item[2] === 'number' ? item[2] : item[1] + 1]];
-      });
-      const regexes = [];
-      const map = new Map(entries.filter(([test, args]) => {
-        const hasRegexChars = /[\\^$.*+?()[\]{}|\s]/.test(test);
-        if (hasRegexChars) {
-          regexes.push([new RegExp(test), args]);
-        }
-        return !hasRegexChars;
       }));
-      additionalHooks = { regexes, map };
+      additionalHooks = (name) => map.get(name) || false;
     } else if (additionalHooksOption) {
-      additionalHooks = {
-        regexes: [[new RegExp(additionalHooksOption), [[0], 1]]],
-        map: new Map()
-      };
+      const regex = new RegExp(additionalHooksOption);
+      additionalHooks = (name) => regex.test(name) && [[0], 1];
     }
 
     const enableDangerousAutofixThisMayCauseInfiniteLoops =
@@ -1181,6 +1182,7 @@ export default {
       });
     }
 
+    /** @param node {import('estree').CallExpression} */
     function visitCallExpression(node) {
       const hookMatch = getReactiveHookMatch(node.callee, options);
       if (!hookMatch) {
@@ -1729,6 +1731,10 @@ function analyzePropertyChain(node, optionalChains) {
   }
 }
 
+/**
+ * @param node {import('estree').Node}
+ * @param options {NormalizedOptions=}
+ */
 function getNodeWithoutReactNamespace(node, options) {
   if (
     node.type === 'MemberExpression' &&
@@ -1747,7 +1753,11 @@ function getNodeWithoutReactNamespace(node, options) {
 // 0 for useEffect/useMemo/useCallback(fn).
 // 1 for useImperativeHandle(ref, fn).
 // For additionally configured Hooks, assume that they're like useEffect (0).
-/** @returns {false | [number[], number]} */
+/**
+ * @param calleeNode {import('estree').Node}
+ * @param options {NormalizedOptions}
+ * @returns {false | [number[], number]}
+ */
 function getReactiveHookMatch(calleeNode, options) {
   const node = getNodeWithoutReactNamespace(calleeNode);
   if (node.type !== 'Identifier') {
@@ -1777,11 +1787,7 @@ function getReactiveHookMatch(calleeNode, options) {
             throw error;
           }
         }
-        return (
-          options.additionalHooks.map.get(name) ||
-          options.additionalHooks.regexes.find((test) => test[0].test(name))?.[1] ||
-          false
-        );
+        return options.additionalHooks(name);
       } else {
         return false;
       }
