@@ -11,6 +11,7 @@
 
 export default {
   meta: {
+    hasSuggestions: true,
     type: 'suggestion',
     docs: {
       description: 'verifies the list of dependencies for Hooks like useEffect and similar',
