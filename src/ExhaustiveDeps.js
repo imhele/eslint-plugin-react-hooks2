@@ -9,6 +9,16 @@
 
 'use strict';
 
+/**
+ * @typedef NormalizedOptions
+ * @property additionalHooks {(name: string) => [number[], number] | false=}
+ * @property enableDangerousAutofixThisMayCauseInfiniteLoops {boolean}
+ * @property immediateRefHooks {RegExp=}
+ * @property stableRefHooks {RegExp=}
+ * @property stableStateHooks {Map<string, number[]>=}
+ */
+
+/** */
 export default {
   meta: {
     hasSuggestions: true,
@@ -27,7 +37,17 @@ export default {
         enableDangerousAutofixThisMayCauseInfiniteLoops: false,
         properties: {
           additionalHooks: {
-            type: 'string',
+            type: ['string', 'array'],
+            items: {
+              type: ['string', 'array'],
+              minItems: 2,
+              maxItems: 3,
+              items: [
+                { type: 'string' },
+                { type: ['number', 'array'], items: { type: 'number', minimum: 0 }, minimum: 0, minItems: 1 },
+                { type: 'number', minimum: 0 },
+              ],
+            }
           },
           enableDangerousAutofixThisMayCauseInfiniteLoops: {
             type: 'boolean',
@@ -43,9 +63,11 @@ export default {
             type: 'array',
             items: {
               type: ['string', 'array'],
+              minItems: 2,
+              maxItems: 2,
               items: [
                 { type: 'string' },
-                { type: ['number', 'array'], items: { type: 'number', minimum: 0 }, minimum: 0 },
+                { type: ['number', 'array'], minItems: 1, items: { type: 'number', minimum: 0 }, minimum: 0 },
               ],
             },
           },
@@ -55,9 +77,28 @@ export default {
   },
   create(context) {
     // Parse the `additionalHooks` regex.
-    const additionalHooks = context.options?.[0]?.additionalHooks
-      ? new RegExp(context.options[0].additionalHooks)
-      : undefined;
+    const additionalHooksOption = context.options?.[0]?.additionalHooks;
+    /** @type {((name: string) => [number[], number] | false) | undefined} */
+    let additionalHooks;
+    if (Array.isArray(additionalHooksOption)) {
+      /** @type {Map<string, [number[], number]>} */
+      const map = new Map(additionalHooksOption.map((item) => {
+        // 'useCustomHook'
+        if (typeof item === 'string') return [item, [[0], 1]];
+        // ['useCustomHook', [1, 2] (, 4)]
+        if (Array.isArray(item[1])) {
+          const callbacks = item[1].slice().sort();
+          const deps = typeof item[2] === 'number' ? item[2] : callbacks[callbacks.length - 1] + 1;
+          return [item[0], [callbacks, deps]]
+        };
+        // ['useCustomHook', 1 (, 3)]
+        return [item[0], [[item[1]], typeof item[2] === 'number' ? item[2] : item[1] + 1]];
+      }));
+      additionalHooks = (name) => map.get(name) || false;
+    } else if (additionalHooksOption) {
+      const regex = new RegExp(additionalHooksOption);
+      additionalHooks = (name) => regex.test(name) && [[0], 1];
+    }
 
     const enableDangerousAutofixThisMayCauseInfiniteLoops =
       context.options?.[0]?.enableDangerousAutofixThisMayCauseInfiniteLoops || false;
@@ -1142,22 +1183,24 @@ export default {
       });
     }
 
+    /** @param node {import('estree').CallExpression} */
     function visitCallExpression(node) {
-      const callbackIndex = getReactiveHookCallbackIndex(node.callee, options);
-      if (callbackIndex === -1) {
+      const hookMatch = getReactiveHookMatch(node.callee, options);
+      if (!hookMatch) {
         // Not a React Hook call that needs deps.
         return;
       }
-      const callback = node.arguments[callbackIndex];
+      const [callbackIndexes, depsIndex] = hookMatch;
+      const callbacks = callbackIndexes.map((callbackIndex) => node.arguments[callbackIndex]);
       const reactiveHook = node.callee;
       const reactiveHookName = getNodeWithoutReactNamespace(reactiveHook).name;
-      const declaredDependenciesNode = node.arguments[callbackIndex + 1];
+      const declaredDependenciesNode = node.arguments[depsIndex];
       const isEffect = /Effect($|[^a-z])/g.test(reactiveHookName);
 
       // Check whether a callback is supplied. If there is no callback supplied
       // then the hook will not work and React will throw a TypeError.
       // So no need to check for dependency inclusion.
-      if (!callback) {
+      if (!callbacks.some(Boolean)) {
         reportProblem({
           node: reactiveHook,
           message:
@@ -1185,111 +1228,115 @@ export default {
         return;
       }
 
-      switch (callback.type) {
-        case 'FunctionExpression':
-        case 'ArrowFunctionExpression':
-          visitFunctionWithDependencies(
-            callback,
-            declaredDependenciesNode,
-            reactiveHook,
-            reactiveHookName,
-            isEffect,
-          );
-          return; // Handled
-        case 'Identifier':
-          if (!declaredDependenciesNode) {
-            // No deps, no problems.
-            return; // Handled
-          }
-          // The function passed as a callback is not written inline.
-          // But perhaps it's in the dependencies array?
-          if (
-            declaredDependenciesNode.elements &&
-            declaredDependenciesNode.elements.some(
-              (el) => el && el.type === 'Identifier' && el.name === callback.name,
-            )
-          ) {
-            // If it's already in the list of deps, we don't care because
-            // this is valid regardless.
-            return; // Handled
-          }
-          // We'll do our best effort to find it, complain otherwise.
-          const variable = context.getScope().set.get(callback.name);
-          if (variable == null || variable.defs == null) {
-            // If it's not in scope, we don't care.
-            return; // Handled
-          }
-          // The function passed as a callback is not written inline.
-          // But it's defined somewhere in the render scope.
-          // We'll do our best effort to find and check it, complain otherwise.
-          const def = variable.defs[0];
-          if (!def || !def.node) {
-            break; // Unhandled
-          }
-          if (def.type !== 'Variable' && def.type !== 'FunctionName') {
-            // Parameter or an unusual pattern. Bail out.
-            break; // Unhandled
-          }
-          switch (def.node.type) {
-            case 'FunctionDeclaration':
-              // useEffect(() => { ... }, []);
-              visitFunctionWithDependencies(
-                def.node,
-                declaredDependenciesNode,
-                reactiveHook,
-                reactiveHookName,
-                isEffect,
-              );
-              return; // Handled
-            case 'VariableDeclarator':
-              const init = def.node.init;
-              if (!init) {
-                break; // Unhandled
-              }
-              switch (init.type) {
-                // const effectBody = () => {...};
-                // useEffect(effectBody, []);
-                case 'ArrowFunctionExpression':
-                case 'FunctionExpression':
-                  // We can inspect this function as if it were inline.
-                  visitFunctionWithDependencies(
-                    init,
-                    declaredDependenciesNode,
-                    reactiveHook,
-                    reactiveHookName,
-                    isEffect,
-                  );
-                  return; // Handled
-              }
-              break; // Unhandled
-          }
-          break; // Unhandled
-        default:
-          // useEffect(generateEffectBody(), []);
-          reportProblem({
-            node: reactiveHook,
-            message:
-              `React Hook ${reactiveHookName} received a function whose dependencies ` +
-              `are unknown. Pass an inline function instead.`,
-          });
-          return; // Handled
-      }
 
-      // Something unusual. Fall back to suggesting to add the body itself as a dep.
-      reportProblem({
-        node: reactiveHook,
-        message:
-          `React Hook ${reactiveHookName} has a missing dependency: '${callback.name}'. ` +
-          `Either include it or remove the dependency array.`,
-        suggest: [
-          {
-            desc: `Update the dependencies array to be: [${callback.name}]`,
-            fix(fixer) {
-              return fixer.replaceText(declaredDependenciesNode, `[${callback.name}]`);
+      for (const callback of callbacks) {
+        if (!callback) continue;
+        switch (callback.type) {
+          case 'FunctionExpression':
+          case 'ArrowFunctionExpression':
+            visitFunctionWithDependencies(
+              callback,
+              declaredDependenciesNode,
+              reactiveHook,
+              reactiveHookName,
+              isEffect,
+            );
+            continue; // Handled
+          case 'Identifier':
+            if (!declaredDependenciesNode) {
+              // No deps, no problems.
+              continue; // Handled
+            }
+            // The function passed as a callback is not written inline.
+            // But perhaps it's in the dependencies array?
+            if (
+              declaredDependenciesNode.elements &&
+              declaredDependenciesNode.elements.some(
+                (el) => el && el.type === 'Identifier' && el.name === callback.name,
+              )
+            ) {
+              // If it's already in the list of deps, we don't care because
+              // this is valid regardless.
+              continue; // Handled
+            }
+            // We'll do our best effort to find it, complain otherwise.
+            const variable = context.getScope().set.get(callback.name);
+            if (variable == null || variable.defs == null) {
+              // If it's not in scope, we don't care.
+              continue; // Handled
+            }
+            // The function passed as a callback is not written inline.
+            // But it's defined somewhere in the render scope.
+            // We'll do our best effort to find and check it, complain otherwise.
+            const def = variable.defs[0];
+            if (!def || !def.node) {
+              break; // Unhandled
+            }
+            if (def.type !== 'Variable' && def.type !== 'FunctionName') {
+              // Parameter or an unusual pattern. Bail out.
+              break; // Unhandled
+            }
+            switch (def.node.type) {
+              case 'FunctionDeclaration':
+                // useEffect(() => { ... }, []);
+                visitFunctionWithDependencies(
+                  def.node,
+                  declaredDependenciesNode,
+                  reactiveHook,
+                  reactiveHookName,
+                  isEffect,
+                );
+                continue; // Handled
+              case 'VariableDeclarator':
+                const init = def.node.init;
+                if (!init) {
+                  break; // Unhandled
+                }
+                switch (init.type) {
+                  // const effectBody = () => {...};
+                  // useEffect(effectBody, []);
+                  case 'ArrowFunctionExpression':
+                  case 'FunctionExpression':
+                    // We can inspect this function as if it were inline.
+                    visitFunctionWithDependencies(
+                      init,
+                      declaredDependenciesNode,
+                      reactiveHook,
+                      reactiveHookName,
+                      isEffect,
+                    );
+                    continue; // Handled
+                }
+                break; // Unhandled
+            }
+            break; // Unhandled
+          default:
+            // useEffect(generateEffectBody(), []);
+            reportProblem({
+              node: reactiveHook,
+              message:
+                `React Hook ${reactiveHookName} received a function whose dependencies ` +
+                `are unknown. Pass an inline function instead.`,
+            });
+            continue; // Handled
+        }
+
+        // Something unusual. Fall back to suggesting to add the body itself as a dep.
+        reportProblem({
+          node: reactiveHook,
+          message:
+            `React Hook ${reactiveHookName} has a missing dependency: '${callback.name}'. ` +
+            `Either include it or remove the dependency array.`,
+          suggest: [
+            {
+              desc: `Update the dependencies array to be: [${callback.name}]`,
+              fix(fixer) {
+                return fixer.replaceText(declaredDependenciesNode, `[${callback.name}]`);
+              },
             },
-          },
-        ],
-      });
+          ],
+        });
+      }
     }
 
     return {
@@ -1685,6 +1732,10 @@ function analyzePropertyChain(node, optionalChains) {
   }
 }
 
+/**
+ * @param node {import('estree').Node}
+ * @param options {NormalizedOptions=}
+ */
 function getNodeWithoutReactNamespace(node, options) {
   if (
     node.type === 'MemberExpression' &&
@@ -1703,10 +1754,15 @@ function getNodeWithoutReactNamespace(node, options) {
 // 0 for useEffect/useMemo/useCallback(fn).
 // 1 for useImperativeHandle(ref, fn).
 // For additionally configured Hooks, assume that they're like useEffect (0).
-function getReactiveHookCallbackIndex(calleeNode, options) {
+/**
+ * @param calleeNode {import('estree').Node}
+ * @param options {NormalizedOptions}
+ * @returns {false | [number[], number]}
+ */
+function getReactiveHookMatch(calleeNode, options) {
   const node = getNodeWithoutReactNamespace(calleeNode);
   if (node.type !== 'Identifier') {
-    return -1;
+    return false;
   }
   switch (node.name) {
     case 'useEffect':
@@ -1714,10 +1770,10 @@ function getReactiveHookCallbackIndex(calleeNode, options) {
     case 'useCallback':
     case 'useMemo':
       // useEffect(fn)
-      return 0;
+      return [[0], 1];
     case 'useImperativeHandle':
       // useImperativeHandle(ref, fn)
-      return 1;
+      return [[1], 2];
     default:
       if (node === calleeNode && options && options.additionalHooks) {
         // Allow the user to provide a regular expression which enables the lint to
@@ -1727,14 +1783,14 @@ function getReactiveHookCallbackIndex(calleeNode, options) {
           name = analyzePropertyChain(node, null);
         } catch (error) {
           if (/Unsupported node type/.test(error.message)) {
-            return 0;
+            return [[0], 1];
           } else {
             throw error;
           }
         }
-        return options.additionalHooks.test(name) ? 0 : -1;
+        return options.additionalHooks(name);
       } else {
-        return -1;
+        return false;
       }
   }
 }
