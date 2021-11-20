@@ -1,7 +1,7 @@
 {
   "name": "eslint-plugin-react-hooks2",
   "description": "ESLint rules for React Hooks",
-  "version": "4.5.1",
+  "version": "4.6.0",
   "main": "./lib/index.js",
   "module": "./es/index.js",
   "types": "./es/index.d.ts",
