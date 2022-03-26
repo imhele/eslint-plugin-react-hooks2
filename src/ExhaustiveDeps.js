@@ -113,19 +113,21 @@ export default {
       ? new RegExp(context.options[0].stableRefHooks)
       : undefined;
 
-    // Normalize as [string, number[]][]
+    // Normalize as `() => indexes`
+    /** @type {((name: string) => readonly number[]) | undefined} */
     let stableStateHooks;
 
     if (context.options?.[0]?.stableStateHooks) {
+      /** @type {readonly (readonly [RegExp, readonly number[]])[]} */
       const entries = context.options[0].stableStateHooks.map((item) => {
         // 'useCustomHook'
-        if (typeof item === 'string') return [item, [1]];
+        if (typeof item === 'string') return [new RegExp(item), [1]];
         // ['useCustomHook', [1, 2]]
-        if (Array.isArray(item[1])) return [item[0], item[1].slice().sort()];
+        if (Array.isArray(item[1])) return [new RegExp(item[0]), item[1].slice().sort()];
         // ['useCustomHook', 1]
-        return [item[0], [item[1]]];
+        return [new RegExp(item[0]), [item[1]]];
       });
-      stableStateHooks = new Map(entries);
+      stableStateHooks = (name) => entries.find(([pattern]) => pattern.test(name))?.[1] || [];
     }
 
     const options = {
@@ -335,14 +337,14 @@ export default {
               return true;
             }
           }
-        } else if (options.stableStateHooks?.has(name)) {
+        } else if (options.stableStateHooks) {
           // Custom stable state hooks
           if (id.type === 'ArrayPattern' && Array.isArray(resolved.identifiers)) {
             // Is tuple contains any stable element which has the same reference we're checking?
             const elements = id.elements;
             const identifier = resolved.identifiers[0];
             // Indexes array has already been sorted.
-            const stableIndexes = options.stableStateHooks.get(name);
+            const stableIndexes = options.stableStateHooks(name);
             for (let i = 0; i < stableIndexes.length && elements.length > stableIndexes[i]; i++) {
               if (elements[stableIndexes[i]] === identifier) {
                 // Array element is stable.

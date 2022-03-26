@@ -153,7 +153,7 @@
 
 - 描述：配置为一个数组，数组的每一项可以是如下几种类型：
 
-  1. `string` ：**精确**匹配 Hook ，并将其返回的数组的第二项入参视为组件挂载期间不会发生变化；
+  1. `string` ：**正则**匹配 Hook ，并将其返回的数组的第二项入参视为组件挂载期间不会发生变化；
   2. `[reactHookName: string, stableElementIndexes: number | number[]]` ：根据 reactHookName **精确**匹配 Hook 、将 Hook 返回的数组中 stableElementIndexes 位置的元素视为组件挂载期间不会发生变化；
 
 - 针对上述几种类型的配置，分别给出示例：
@@ -162,13 +162,13 @@
 
      ```json
      {
-       "stableStateHooks": ["useModel"]
+       "stableStateHooks": ["^use.*Model$"]
      }
      ```
 
      ```js
      function MyComponent() {
-       const [state, actions] = useModel();
+       const [state, actions] = useMyModel();
 
        useEffect(() => {
          // 在 useEffect 或是 useCallback 中使用 actions 不会要求加入依赖项
@@ -183,7 +183,7 @@
 
      ```json
      {
-       "stableStateHooks": [["useToggle", [1, 2]]]
+       "stableStateHooks": [["^useToggle$", [1, 2]]]
      }
      ```
 
